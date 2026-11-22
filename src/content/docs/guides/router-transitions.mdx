@@ -43,7 +43,7 @@ The full working recipe lives in the [quick start](/guides/quick-start/#5-the-tr
 
 ## Transitions and the View Transitions API
 
-Same-document View Transitions are now in all three major engines, and a built-in `viewTransition` preset is on the roadmap. It composes with this model rather than replacing it: the View Transitions API captures page snapshots, while the dual-tree keeps shared layouts untouched — so `::view-transition-*` rules only ever see the part that actually changed.
+Same-document View Transitions are now in all three major engines, and router 0.3.0 ships an opt-in flag for them: set `viewTransition: true` in your `transitions` config and the tree swap is wrapped in `document.startViewTransition()`, with a plain instant swap where the API is missing. It composes with this model rather than replacing it: the View Transitions API captures page snapshots, while the dual-tree keeps shared layouts untouched — so `::view-transition-*` rules only ever see the part that actually changed.
 
 ## Where presets will live
 
