@@ -1,0 +1,50 @@
+---
+title: Transitions
+description: The dual-tree navigation model — two trees mounted, one shared prefix untouched, plain CSS choreography.
+---
+
+## Two trees, one handoff
+
+During navigation `@xzsv/router` holds **two** component trees mounted: the outgoing one and the incoming one. It computes an equality point (`eq`) — how many leading nodes (same component, same params) the two trees share. Everything at or before `eq` is the **persistent prefix**: same components, same DOM, and it never receives transition callbacks. Everything past it gets `enter` (on the incoming tree) or `leave` (on the outgoing tree).
+
+The router waits for the promises your callbacks return — bounded by `timeoutMs` (default 1000) so a forgotten animation can't wedge navigation — then unmounts the outgoing tree. Layouts and pages that don't opt in simply don't animate.
+
+That is the whole contract. The animation is plain CSS you write; the router only orchestrates the handoff.
+
+## Opting a page in
+
+```svelte
+<section class='page' {@attach routeNode}>
+	<!-- page content -->
+</section>
+```
+
+`routeNode` registers the element under its tree-node id. On navigation the router collects registered elements and calls your functions:
+
+```ts
+enter: (el, info) => Promise<void>
+leave: (el, info) => Promise<void>
+// info: { depth, key, from, to }
+```
+
+The `info` argument carries the from/to route identity, which is what direction-aware transitions are built on: forward navigations slide one way, back navigations the other.
+
+## Why layouts never animate
+
+The layout sits at the top of the tree and is identical across pages, so `eq` always includes it: no callbacks, no remount. Nav-tab highlights, unread badges, running timers, and playing audio survive every navigation because their DOM nodes are never touched. This is the structural guarantee that distinguishes the dual-tree model from swap-and-snapshot approaches: a persistent layout physically cannot flicker, because it never receives a callback.
+
+## Details that took debugging to find
+
+1. **Forced reflow** (`void el.offsetWidth`) between setting the start state and starting the transition — without it the browser coalesces both writes and nothing animates.
+2. **`position: absolute` on the leaving element** — otherwise the incoming page renders below the outgoing one (both in flow) and the page visibly jumps. The parent needs `position: relative`.
+3. **Resolve on `transitionend` _or_ a timer** — cancelled tabs, `prefers-reduced-motion`, and interrupted transitions all still finalize the navigation.
+
+The full working recipe lives in the [quick start](/guides/quick-start/#5-the-transitions).
+
+## Transitions and the View Transitions API
+
+Same-document View Transitions are now in all three major engines, and a built-in `viewTransition` preset is on the roadmap. It composes with this model rather than replacing it: the View Transitions API captures page snapshots, while the dual-tree keeps shared layouts untouched — so `::view-transition-*` rules only ever see the part that actually changed.
+
+## Where presets will live
+
+The boilerplate on this page — settle plumbing, reduced-motion guard, forced reflow, out-of-flow leave — becomes imports with [`@xzsv/animate`](/guides/animate/). Until then, the recipe above is the pattern to copy.

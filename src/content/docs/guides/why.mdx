@@ -1,0 +1,30 @@
+---
+title: Why XZSV
+description: Two ideas — structural transitions and readiness orchestration — and where the suite sits among Svelte routers.
+---
+
+XZSV exists because of two observations about single-page apps.
+
+## 1. Routers throw away what they know when transitions start
+
+A typical router knows your page is a tree — a layout with a page inside it. But when it animates a navigation, it unmounts everything, mounts the next page, and hands the animation library two disconnected snapshots that have to re-implement tree diffing to avoid flickering. Shared layouts blink, state resets, and "just cross-fade the page" becomes a project.
+
+**The dual-tree idea.** `@xzsv/router` renders a route as a tree (layout + page). During navigation it computes how much of that tree the destination shares — the _shared prefix_ — and keeps it mounted. Only the part that actually changes receives `enter`/`leave` callbacks, and both trees stay mounted until your animation settles. A persistent layout cannot flicker, because it never receives a callback and never remounts. Its badges, timers, and music keep their DOM nodes across every navigation.
+
+## 2. `{#if loaded}` defers the work it waits for
+
+The usual loading pattern gates content behind `{#if loaded}`. That means the images and requests you are waiting for have not even started when the spinner appears — the gate delays the very work it waits on.
+
+**The overlay idea.** `@xzsv/load` mounts your content immediately underneath a loading screen and has it report its own readiness: images load _and_ decode, fonts arrive, requests resolve — all folded into one weighted percentage and one latching `ready` flag. The reveal is a fade, and because the page already laid out under the veil, there is no reveal-time jank.
+
+## Where it sits
+
+An honest map:
+
+- **SvelteKit** — the right answer if you want a framework: server rendering, file-based routing, endpoints. XZSV is for SPAs.
+- **sv-router** — excellent DX-focused SPA router: type-safe navigation, optional file-based routing with typegen, reactive search params, built-in View Transitions.
+- **XZSV** — when the _feel_ is the product: choreographed screen changes, shared layouts that never remount, real loading orchestration. Games, app-like tools, dashboards.
+
+## Source-shipping
+
+The packages ship as raw source: the npm export is `src/index.ts` — TypeScript, runes, and `.svelte` files included. Your bundler and your Svelte compiler process them, so there is exactly one Svelte runtime in your app and no build step inside the packages to go stale. The [quick start](/guides/quick-start/) shows the two Vite lines this model needs.

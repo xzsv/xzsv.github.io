@@ -1,0 +1,18 @@
+---
+title: The plan
+description: '@xzsv/animate — transition presets and settle plumbing, currently in design.'
+---
+
+`@xzsv/animate` is in design. It packages the boilerplate the [transitions guide](/guides/router-transitions/) teaches by hand:
+
+- `settle(el, ms)` — transitionend-or-timer resolution as an import.
+- `reduced()` — `prefers-reduced-motion` guard; every preset resolves instantly under it, so navigation never wedges on a motion setting.
+- Presets exporting `{ enter, leave }` pairs ready to spread into the router's `transitions` config: `crossfade` (the quick-start recipe, parameterized), direction-aware `slide`, and game-feel `lift`/`scale`.
+
+## The boundary it defends
+
+The router ships **zero animation code** — it orchestrates the dual-tree handoff and calls your functions. `@xzsv/animate` consumes that same seam, so adopting it is an import swap, not a migration. And for engine-grade choreography (timelines, springs, SVG paths), the package stays out of the way: import [anime.js](https://animejs.com) (v4, MIT) in your own callbacks and return the timeline's finished promise.
+
+## Status
+
+Planned after the router's 0.3.0 hardening release. Watch the [GitHub organization](https://github.com/xzsv) for progress.

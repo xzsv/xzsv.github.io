@@ -1,0 +1,177 @@
+---
+title: Quick start
+description: From an empty Vite folder to animated routes in about five minutes.
+---
+
+You need Node 20.19+ (or 22.12+), Vite 8, and Svelte 5.
+
+```bash
+bun add @xzsv/router
+```
+
+## 1. Tell Vite about source-shipped packages
+
+The packages ship as raw TypeScript with runes inside, so they must go through your Svelte plugin — not dependency pre-bundling. Two lines:
+
+```ts
+// vite.config.ts
+import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+	plugins: [svelte()],
+	resolve: {
+		// One Svelte runtime for your app and the packages.
+		dedupe: ['svelte'],
+	},
+	optimizeDeps: {
+		// Route the packages through the Svelte plugin.
+		exclude: ['@xzsv/router'],
+	},
+})
+```
+
+## 2. Create the router
+
+```ts
+// src/lib/routes.svelte.ts
+import { createRouter } from '@xzsv/router'
+import Shell from '../pages/Shell.svelte'
+import Home from '../pages/Home.svelte'
+import About from '../pages/About.svelte'
+import { enter, leave } from './transitions'
+
+export const router = createRouter({
+	routes: {
+		layout: Shell,
+		'/': Home,
+		'/about': About,
+		'*rest': () => import('../pages/NotFound.svelte'), // lazy: own chunk
+	},
+	transitions: { enter, leave, timeoutMs: 600 },
+})
+```
+
+The route keys carry the semantics:
+
+- `layout` — a component with a `children` snippet; mounts once and survives every navigation whose tree shares it.
+- `'/path'` — a component or a lazy `() => import()` (lazy routes each become their own chunk and are pre-warmed on link hover).
+- `'/user/:name'` — dynamic segments surface as `router.route.params.name`.
+- `'*rest'` — wildcard catch-all.
+
+## 3. Mount it
+
+```ts
+// src/main.ts
+import { mount } from 'svelte'
+import App from './App.svelte'
+
+mount(App, { target: document.getElementById('app') })
+```
+
+```svelte
+<!-- src/App.svelte -->
+<script>
+	// Importing this module runs createRouter() before <Router> mounts.
+	import { router } from './lib/routes.svelte.ts'
+	import { Router } from '@xzsv/router'
+</script>
+
+<Router />
+```
+
+That first import looks unused. It is the load-bearing line: the router is module state, and `<Router>` renders it. Keep the import on the component that mounts, so a refactor that deletes it breaks the build instead of blanking the page.
+
+## 4. Pages opt into transitions
+
+The layout mounts once and never animates — only pages do:
+
+```svelte
+<!-- src/pages/Shell.svelte -->
+<script>
+	let { children } = $props()
+</script>
+
+<nav>
+	<a href='/'>Home</a>
+	<a href='/about'>About</a>
+</nav>
+<main>
+	{@render children()}
+</main>
+
+<style>
+	/* leaving pages lift out of flow — the parent needs this */
+	main {
+		position: relative;
+	}
+</style>
+```
+
+```svelte
+<!-- src/pages/Home.svelte -->
+<script>
+	import { routeNode } from '@xzsv/router'
+</script>
+
+<section class='page' {@attach routeNode}>
+	<h1>Home</h1>
+	<p><a href='/about'>Go to About</a></p>
+</section>
+```
+
+`{@attach routeNode}` registers the page root with the router. Without it the page renders fine — it just never animates.
+
+## 5. The transitions
+
+```ts
+// src/lib/transitions.ts
+const DUR = 220
+
+function settle(el: HTMLElement): Promise<void> {
+	return new Promise((resolve) => {
+		let done = false
+		const finish = () => {
+			if (done) return
+			done = true
+			resolve()
+		}
+		el.addEventListener('transitionend', finish, { once: true })
+		setTimeout(finish, DUR + 80) // fallback: transitionend is not guaranteed
+	})
+}
+
+export const enter = (el: HTMLElement) => {
+	el.style.opacity = '0'
+	el.style.transform = 'translateY(12px)'
+	void el.offsetWidth // force reflow so both writes don't coalesce
+	el.style.transition = `opacity ${DUR}ms, transform ${DUR}ms`
+	el.style.opacity = '1'
+	el.style.transform = 'translateY(0)'
+	return settle(el)
+}
+
+export const leave = (el: HTMLElement) => {
+	el.style.position = 'absolute' // out of flow → true cross-fade
+	el.style.top = '0'
+	el.style.left = '0'
+	el.style.width = '100%'
+	el.style.transition = `opacity ${DUR}ms, transform ${DUR}ms`
+	el.style.opacity = '0'
+	el.style.transform = 'translateY(-12px)'
+	return settle(el)
+}
+```
+
+Three details that make or break it:
+
+1. The **forced reflow** (`void el.offsetWidth`) between the start state and the transition — without it the browser merges the writes and nothing animates.
+2. **`position: absolute` on the leaving page** — otherwise both pages stack in flow and the page visibly jumps before fading.
+3. The **settle promise** resolves on `transitionend` _or_ a timer. The router holds both trees until it settles, bounded by `timeoutMs`, so a forgotten animation can never wedge navigation.
+
+Now navigate: plain anchors (`<a href='/about'>`) are intercepted automatically, or call `router.navigate('/about')` in code.
+
+## Next steps
+
+- [Transitions](/guides/router-transitions/) — how the dual-tree swap actually works and what you can choreograph with `info`.
+- [Loading & overlays](/guides/load/) — add `@xzsv/load` for boot screens with honest progress.

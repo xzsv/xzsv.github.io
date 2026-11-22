@@ -1,0 +1,82 @@
+---
+title: Loading & overlays
+description: One percentage across every wait, a ready flag that latches, and the overlay rule that keeps content working underneath.
+---
+
+## The overlay rule
+
+**Content loads underneath an overlay, never behind `{#if}`.**
+
+```svelte
+<!-- Defers the very work you're waiting for: the image hasn't even started. -->
+{#if loaded}<img src='/hero.png' alt='' />{/if}
+
+<!-- Mounts immediately, reports its own readiness. -->
+<img src='/hero.png' alt='' {@attach loader.attachImage()} />
+```
+
+An `<img>` behind `{#if}` hasn't started fetching when the gate opens. The attachment mounts with the DOM, loads, decodes, waits for a double `requestAnimationFrame` (presented, not merely complete), and only then counts as ready. The overlay fades once `ready` latches — and because the page already laid out underneath the veil, the reveal has no jank.
+
+## One loader, everything counts
+
+```ts
+import { createLoader } from '@xzsv/load'
+
+const loader = createLoader({
+	threshold: 1, // fraction of total weight that must succeed to latch ready
+	errorPolicy: 'fail', // 'fail': any failure → state 'error'; 'skip': shrug it off
+	timeoutMs: 10_000, // stuck-run escape hatch
+})
+
+loader.task('session', () => api.me(), { weight: 2 }) // thunk = retryable
+loader.image('/favicon.svg', { weight: 1 }) // off-DOM probe, deduped by URL
+loader.font('700 1rem "Noto Sans JP"') // document.fonts.load + double rAF
+```
+
+Weights tell the truth about the bar: give the long pole more of it, and quick wins stop stalling the display at 95%.
+
+## Reading progress
+
+```ts
+loader.state // 'idle' | 'loading' | 'ready' | 'error'
+loader.percent // 0–100, weight-based
+loader.ready // latches true at threshold — never unsets
+loader.failed // snapshot of failed tasks, for error UIs
+await loader.finish() // resolves at ready, rejects on error
+```
+
+`ready` **latches**: once the bar is full it stays full, even if something re-registers later. Boot screens fade once, decisively.
+
+## A minimal boot screen
+
+```svelte
+<script>
+	import { createLoader } from '@xzsv/load'
+
+	const loader = createLoader({ threshold: 1, timeoutMs: 10_000 })
+	loader.task('fonts', () => document.fonts.ready)
+
+	const width = $derived(`${loader.percent}%`)
+</script>
+
+<section class='boot' style:opacity={loader.ready ? 0 : 1}>
+	<div class='bar' style:width={width}></div>
+	<span>{loader.percent}%</span>
+
+	{#if loader.state === 'error'}
+		<button onclick={() => loader.retry()}>Retry</button>
+		<button onclick={() => loader.force()}>Continue anyway</button>
+	{/if}
+</section>
+```
+
+## Escapes
+
+- `force()` — "Continue anyway": pending tasks settle as cancelled, `ready` latches, and the user explicitly opts into a possibly-broken screen.
+- `reset()` — drop everything, unlatch, start over.
+- `timeoutMs` — a hung decode or dead connection becomes `'error'` (with an `onTimeout` hook) instead of an eternal spinner.
+- `loading='lazy'` images are **skipped with a warning** — they don't fetch until scrolled into view, which would stall the run forever. Warm lazy-rendered art with `loader.image(url)` instead.
+
+## What's next
+
+Per-component loading (one loader per set, reserved boxes, `whenVisible` arming), network retries, and offline awareness are coming to this site as the suite ships its 0.3 releases. Animation presets built on top of the same philosophy: [`@xzsv/animate`](/guides/animate/).
