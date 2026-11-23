@@ -1,0 +1,86 @@
+---
+title: The HUD bar
+description: '@xzsv/bar — a persistent HUD whose contents morph with route changes, inside the router''s transition batch.'
+---
+
+A bar that stays mounted while everything under it navigates: titles cross-fade, tabs move, and the router itself waits for the morph to finish. The first component built on the trio — it consumes `chromeNode` and `@xzsv/animate` presets and changes nothing about them.
+
+**Status: in testing.** Not on npm yet; it ships alongside router 0.4.1 and animate 0.2.1.
+
+## Use it
+
+```ts
+// routes.svelte.ts
+import { createBar } from '@xzsv/bar'
+
+export const bar = createBar({
+	sections: [
+		{ match: '/', title: 'Ember Circuit' },
+		{
+			match: '/hub',
+			title: ({ params }) => (params.zone ? `Hub: ${params.zone}` : 'Hub'),
+			order: 1,
+		},
+		{ match: '/battle', title: 'Battle', order: 2 },
+	],
+	// function titles read live route params at morph time
+	params: () => router.route.params,
+})
+
+export const router = createRouter({
+	routes: {
+		layout: Shell,
+		// ...
+	},
+	transitions: { chrome: bar.chrome, timeoutMs: 800 },
+})
+```
+
+```svelte
+<!-- Shell.svelte -->
+<Bar {bar} variant='floating' class='hud-bar'>
+	{#snippet start()}
+		<button onclick={() => router.navigate(-1)}>◀ back</button>
+	{/snippet}
+	{#snippet end()}
+		<span>{gold} gold</span>
+		<nav><!-- links --></nav>
+	{/snippet}
+</Bar>
+```
+
+The bar attaches [`chromeNode`](/guides/router-transitions/#chrome-transitions-events-scroll) itself: the title morph joins the same jobs batch as the page transitions, bounded by the same `timeoutMs`. A navigation is not "done" until the HUD settles too.
+
+## How sections match
+
+`match` is a segment-aware prefix: `'/hub'` matches `/hub` and `/hub/ember`, never `/hubb`. The longest match wins, so `'/'` can coexist with everything else. Navigating inside a section with an unchanged title skips the morph; a function title that resolves differently still morphs — that is how `Hub` becomes `Hub: Glass Delta` without leaving the section.
+
+## Style contract
+
+- `variant='tucked'` (default) is a full-width strip; `variant='floating'` is a rounded pill.
+- `unstyled` drops the styles entirely; `class` passes through either way.
+- Theme via custom properties, never by fighting the scoped rules: `--bar-bg`, `--bar-fg`, `--bar-height`, `--bar-pad`, `--bar-gap`, `--bar-radius`, `--bar-inset`, `--bar-shadow`, `--bar-position` (set `sticky` for a fixed HUD).
+
+```css
+/* app.css — your class sets the vars; bar consumes them */
+.hud-bar {
+	--bar-bg: var(--c-surface);
+	--bar-fg: var(--c-text);
+	--bar-position: sticky;
+	top: 0;
+	z-index: 10;
+}
+```
+
+## One requirement: dedupe
+
+Consuming the suite through `file:` links or a workspace? Vite can resolve the router twice — once for your app, once through bar's own `node_modules` — and then the bar registers into a different router instance than the one dispatching. Titles stay empty and nothing errors. Prevent it:
+
+```ts
+resolve: { dedupe: ['svelte', '@xzsv/router', '@xzsv/load', '@xzsv/animate', '@xzsv/bar'] }
+```
+
+## What's next
+
+- [Transitions](/guides/router-transitions/) — the chrome seam bar consumes.
+- [The plan (animate)](/guides/animate/) — the presets the morph uses.

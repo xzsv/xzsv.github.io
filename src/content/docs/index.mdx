@@ -7,7 +7,8 @@ XZSV is a small suite of source-shipped Svelte 5 packages for single-page apps t
 
 - **[@xzsv/router](/guides/router-transitions/)** renders a route as a component tree and navigates by swapping trees. It knows which parts of the page are shared, keeps both trees mounted during a transition, and lets you animate only what changed — with plain CSS.
 - **[@xzsv/load](/guides/load/)** folds every wait your first frame depends on — images, fonts, requests, anything — into one percentage and one ready flag. Content loads underneath a loading screen instead of behind an `{#if}`.
-- **@xzsv/animate** (in design) packages the transition presets this site's examples use, with [anime.js](https://animejs.com) as an optional peer. The router itself ships zero animation code.
+- **[@xzsv/animate](/guides/animate/)** packages the transition presets these packages use — `settle`, `reduced`, and the `crossfade` / `slide` / `lift` / `scale` pairs — with [anime.js](https://animejs.com) as an optional peer. The router itself ships zero animation code.
+- **[@xzsv/bar](/guides/bar/)** (in testing) is a persistent HUD bar whose contents morph with route changes, inside the router's own transition batch.
 
 Everything is **source-shipped**: the npm package is raw TypeScript with runes and `.svelte` files inside, compiled by your own Svelte setup. One version of reactivity, no build step inside the packages, debuggable in place.
 
@@ -17,3 +18,5 @@ Everything is **source-shipped**: the npm package is raw TypeScript with runes a
 - [Quick start](/guides/quick-start/) — from an empty Vite folder to animated routes in about five minutes.
 - [Transitions](/guides/router-transitions/) — the dual-tree model and how to choreograph it.
 - [Loading & overlays](/guides/load/) — one percentage, one ready flag, overlays instead of `{#if}`.
+- [Presets](/guides/animate/) — `settle`, `reduced`, and the preset pairs.
+- [The HUD bar](/guides/bar/) — morphing chrome on the router's transition batch.

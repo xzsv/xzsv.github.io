@@ -31,7 +31,11 @@ export default defineConfig({
 				},
 				{
 					label: '@xzsv/animate',
-					items: [{ label: 'The plan', slug: 'guides/animate' }],
+					items: [{ label: 'Presets', slug: 'guides/animate' }],
+				},
+				{
+					label: '@xzsv/bar',
+					items: [{ label: 'The HUD bar', slug: 'guides/bar' }],
 				},
 			],
 			plugins: [starlightLlmsTxt()],
