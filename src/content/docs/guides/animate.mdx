@@ -30,6 +30,23 @@ const router = createRouter({
 
 Each preset is a small factory — `crossfade({ duration })`, `slide({ distance })` — spreading into `enter`/`leave`/`timeoutMs`-shaped config. Leaving nodes are lifted out of flow (`position: absolute` under your `<main>`) so both trees truly cross-fade. The package is source-shipped like its siblings: you compile it with your own Svelte/Vite setup, no extra config beyond the [quick start](/guides/quick-start/).
 
+### Directional slide
+
+`slide` takes an `order(path)` rank and reverses direction whenever the target ranks lower — screen order is the single source of direction, no hand-rolled comparison per navigation:
+
+```ts
+import { slide } from '@xzsv/animate'
+
+const transitions = slide({
+	axis: 'x',
+	distance: 32,
+	duration: 260,
+	order: (p) => ({ '/': 0, '/hub': 1, '/battle': 2 })[p] ?? 1,
+})
+```
+
+`axis` picks `translateX` vs `translateY` (default `'y'`), `easing` overrides the default `'ease-out'`.
+
 ## The boundary it defends
 
 The router ships **zero animation code** — it orchestrates the dual-tree handoff and calls your functions. `@xzsv/animate` consumes that same seam, so adopting it is an import swap, not a migration. For engine-grade choreography (timelines, springs, SVG paths), the package stays out of the way: import [anime.js](https://animejs.com) (v4, MIT) inside your own `enter`/`leave` callbacks and return `settle(...)` or the timeline's finished promise.

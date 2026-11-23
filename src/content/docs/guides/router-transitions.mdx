@@ -24,7 +24,7 @@ That is the whole contract. The animation is plain CSS you write; the router onl
 ```ts
 enter: (el, info) => Promise<void>
 leave: (el, info) => Promise<void>
-// info: { depth, key, from, to }
+// info: { depth, key, from, to, navigationId }
 ```
 
 The `info` argument carries the from/to route identity, which is what direction-aware transitions are built on: forward navigations slide one way, back navigations the other.
@@ -45,6 +45,23 @@ The full working recipe lives in the [quick start](/guides/quick-start/#5-the-tr
 
 Same-document View Transitions are now in all three major engines, and router 0.3.0 ships an opt-in flag for them: set `viewTransition: true` in your `transitions` config and the tree swap is wrapped in `document.startViewTransition()`, with a plain instant swap where the API is missing. It composes with this model rather than replacing it: the View Transitions API captures page snapshots, while the dual-tree keeps shared layouts untouched — so `::view-transition-*` rules only ever see the part that actually changed.
 
-## Where presets will live
+## Chrome transitions, events, scroll (0.4.0)
 
-The boilerplate on this page — settle plumbing, reduced-motion guard, forced reflow, out-of-flow leave — becomes imports with [`@xzsv/animate`](/guides/animate/). Until then, the recipe above is the pattern to copy.
+The equality point has a blind spot: the HUD lives in the layout, which never animates — but sometimes the chrome itself must react (nav bar morphs, tab indicator slides). Register any element with `{@attach chromeNode}` — anywhere in the tree, no route context — and provide a `chrome` pair:
+
+```ts
+transitions: {
+	chrome: {
+		enter: (el, info) => { /* depth: -1 */ },
+		leave: (el, info) => { /* same batch, same timeoutMs */ },
+	},
+}
+```
+
+Chrome callbacks join the same transition batch as route nodes and are never skipped by the equality point.
+
+To observe navigation from outside your hooks, subscribe with `router.onNavigation(ev => …)`: every navigation streams `{ id, phase, from, to, params, keys, cause }` with `id` stable across the pipeline (it matches the `navigationId` on hook args and `RouteNodeInfo`), and `cause` telling you `initial`, `link`, `popstate`, or `programmatic`. Scroll became explicit too: the default no longer force-scrolls on back/forward, and `createRouter({ scroll: 'restore' })` saves per-entry offsets into `history.state.__xzsv` and restores them on popstate.
+
+## Where presets live
+
+The boilerplate on this page — settle plumbing, reduced-motion guard, forced reflow, out-of-flow leave, direction ranks — is imports with [`@xzsv/animate`](/guides/animate/). The recipe above is the pattern the package implements.
